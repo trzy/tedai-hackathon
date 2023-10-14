@@ -29,6 +29,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
 
     @IBOutlet var sceneView: ARSCNView!
     @IBOutlet weak var distanceLabel: UILabel!
+    @IBOutlet weak var testImageView: UIImageView!
+    @IBOutlet weak var placeButton: UIButton!
 
     @IBAction func onPlaceButtonTouched(_ sender: Any) {
         if let frame = sceneView.session.currentFrame {
@@ -80,6 +82,10 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         sceneView.scene.rootNode.addChildNode(node)
         _rightWristCube = node
         node.isHidden = true
+
+        // Hide debug controls
+        placeButton.isHidden = true
+        distanceLabel.isHidden = true
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -144,7 +150,6 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             ctx.setLineWidth(2.0)
 
             for bb in boundingBoxes {
-                print(bb)
                 ctx.beginPath()
                 ctx.move(to: CGPoint(x: bb.minX, y: bb.minY))
                 ctx.addLine(to: CGPoint(x: bb.maxX, y: bb.minY))
@@ -153,8 +158,6 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 ctx.addLine(to: CGPoint(x: bb.minX, y: bb.minY))
                 ctx.strokePath()
             }
-
-
         }
     }
 
@@ -184,28 +187,59 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         return visionRect
     }
 
+    private func extractFaceCrop(of rect: CGRect, from image: UIImage) -> UIImage? {
+        let origin = CGPoint(x: rect.minX * image.size.width, y: (1.0 - rect.maxY) * image.size.height)
+        let size = CGSize(width: rect.width * image.size.width, height: rect.height * image.size.height)
+
+        // Take crop with rect that is expanded around the face to ensure whole face is captured
+        let expandByPercent: CGFloat = 0.25
+        let adjustedOrigin = CGPoint(x: origin.x - expandByPercent * size.width * 0.5, y: origin.y - expandByPercent * size.height * 0.5)
+        let adjustedSize = CGSize(width: size.width * (1.0 + expandByPercent), height: size.height * (1.0 + expandByPercent))
+        return image.crop(to: CGRect(origin: adjustedOrigin, size: adjustedSize))
+    }
+
     private func detectFaces(rgbBuffer: CVPixelBuffer, displayTransform: CGAffineTransform, frame: ARFrame) {
         guard _faceDetectionRequest == nil else { return }  // only if no request in progress
+
         _faceDetectionRequest = VNDetectFaceRectanglesRequest(completionHandler: { (request, error) in
             if error != nil {
                 print("FaceDetection error: \(String(describing: error))")
             }
 
             guard let faceDetectionRequest = request as? VNDetectFaceRectanglesRequest,
-                  let results = faceDetectionRequest.results else {
+                  let results = faceDetectionRequest.results,
+                  results.count > 0 else {
+                DispatchQueue.main.async {
+                    self._faceDetectionRequest = nil
+                }
                 return
             }
 
             print("Found \(results.count) faces")
 
+            guard let image = UIImage(pixelBuffer: rgbBuffer) else {
+                DispatchQueue.main.async {
+                    self._faceDetectionRequest = nil
+                }
+                return
+            }
+
             // Update and display
             DispatchQueue.main.async {
-                // Convert bounding boxes to layer coordinate system
+                // Convert bounding boxes to layer coordinate system and draw
                 let faceBoundingBoxes: [CGRect] = results.map { self.convertVisionRectToViewportRect(rect: $0.boundingBox, displayTransform: displayTransform) }
                 self._faceBoundingBoxLayer.boundingBoxes = faceBoundingBoxes
                 self._faceBoundingBoxLayer.setNeedsDisplay()
                 self._faceBoundingBoxLayer.isHidden = false
+
+                // We can take another request now
                 self._faceDetectionRequest = nil
+
+                // Extract cropped images
+                let faceCrops = results.compactMap { self.extractFaceCrop(of: $0.boundingBox, from: image) }
+                if let firstFace = faceCrops.first {
+                    self.testImageView.image = firstFace
+                }
             }
         })
 

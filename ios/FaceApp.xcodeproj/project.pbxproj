@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		CC1F828628DFCF4600ABA203 /* Matrix4x4.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1F828528DFCF4600ABA203 /* Matrix4x4.swift */; };
+		CC70C4982ADB56E700FF6025 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC70C4972ADB56E700FF6025 /* UIImage+Extensions.swift */; };
 		CCB26D3128D80513004901A3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB26D3028D80513004901A3 /* AppDelegate.swift */; };
 		CCB26D3528D80513004901A3 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB26D3428D80513004901A3 /* ViewController.swift */; };
 		CCB26D3828D80513004901A3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CCB26D3628D80513004901A3 /* Main.storyboard */; };
@@ -43,6 +44,7 @@
 
 /* Begin PBXFileReference section */
 		CC1F828528DFCF4600ABA203 /* Matrix4x4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Matrix4x4.swift; sourceTree = "<group>"; };
+		CC70C4972ADB56E700FF6025 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
 		CCB26D2D28D80513004901A3 /* FaceApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FaceApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCB26D3028D80513004901A3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		CCB26D3428D80513004901A3 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -125,6 +127,7 @@
 				CCB26D6528DAAEB3004901A3 /* HexDump.swift */,
 				CCB26D6728DAB005004901A3 /* UtilNamespace.swift */,
 				CCB26D6928DAB021004901A3 /* Stopwatch.swift */,
+				CC70C4972ADB56E700FF6025 /* UIImage+Extensions.swift */,
 			);
 			path = Util;
 			sourceTree = "<group>";
@@ -284,6 +287,7 @@
 				CCB26D6E28DABCFC004901A3 /* simd_float3+Extensions.swift in Sources */,
 				CCB26D6C28DABB94004901A3 /* simd_float4x4+Extensions.swift in Sources */,
 				CCB26D7328DB7BD9004901A3 /* Ray.swift in Sources */,
+				CC70C4982ADB56E700FF6025 /* UIImage+Extensions.swift in Sources */,
 				CCB26D7528DB7D19004901A3 /* Vector3.swift in Sources */,
 				CCB26D7728DB7D3D004901A3 /* Quaternion.swift in Sources */,
 			);
