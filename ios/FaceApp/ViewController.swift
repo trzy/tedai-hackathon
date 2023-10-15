@@ -174,6 +174,11 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         }
     }
 
+    struct Face {
+        let boundingBox: CGRect // in display frame
+        let image: UIImage?     // cropped image
+    }
+
     private let _faceBoundingBoxLayer = FaceBoundingBoxLayer()
 
     private func createFaceBoundingBoxLayer() {
@@ -224,6 +229,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                   results.count > 0 else {
                 DispatchQueue.main.async {
                     self._faceDetectionRequest = nil
+                    self.clearNameLabels()
                 }
                 return
             }
@@ -233,6 +239,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             guard let image = UIImage(pixelBuffer: rgbBuffer) else {
                 DispatchQueue.main.async {
                     self._faceDetectionRequest = nil
+                    self.clearNameLabels()
                 }
                 return
             }
@@ -248,23 +255,16 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 // We can take another request now
                 self._faceDetectionRequest = nil
 
-                // Extract cropped images
-                let faceCrops = results.compactMap { self.extractFaceCrop(of: $0.boundingBox, from: image) }
-                for faceCrop in faceCrops {
-                    if let jpegData = faceCrop.jpegData(compressionQuality: 0.75) {
-                        self.sendImageToRekognition(imageData: jpegData)
-                    }
+                // Extract cropped face images
+                var faces: [Face] = []
+                for i in 0..<faceBoundingBoxes.count {
+                    faces.append(Face(boundingBox: faceBoundingBoxes[i], image: self.extractFaceCrop(of: results[i].boundingBox, from: image)))
                 }
-//                if let firstFace = faceCrops.first {
-//                    self.testImageView.image = firstFace
-//
-//                    guard let jpegData = firstFace.jpegData(compressionQuality: 0.75) else {
-//                        print("Failed to obtain JPEG data for cropped face")
-//                        return
-//                    }
-//
-//                    self.sendImageToRekognition(imageData: jpegData)
-//                }
+
+                // Send to recognition
+                for face in faces {
+                    self.sendImageToRekognition(face: face)
+                }
             }
         })
 
@@ -280,7 +280,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
 
     private var _lastRekognitionRequestAt: Double = 0
 
-    func sendImageToRekognition(imageData: Data) {
+    func sendImageToRekognition(face: Face) {
         // Throttle requests
         let now = Date.timeIntervalSinceReferenceDate
         guard now - _lastRekognitionRequestAt >= 1.0 else {
@@ -289,6 +289,10 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         _lastRekognitionRequestAt = Date.timeIntervalSinceReferenceDate
 
         guard let rekognitionObject = _rekognition else { return }
+
+        guard let imageData = face.image?.jpegData(compressionQuality: 0.75) else {
+            return
+        }
 
         let awsImage = AWSRekognitionImage()
         awsImage?.bytes = imageData
@@ -304,14 +308,58 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 return
             }
 
+            DispatchQueue.main.async {
+                self.clearNameLabels()
+            }
+
             guard let result = result else { return }
             guard let faceMatches = result.faceMatches, faceMatches.count > 0 else { return }
-            guard let face = faceMatches.first else { return }
-            guard let theRealFace = face.face else { return }
+            guard let faceMatch = faceMatches.first else { return }
+            guard let theRealFace = faceMatch.face else { return }
             guard let name = theRealFace.externalImageId else { return }
 
             print("NAME = \(name)")
+            DispatchQueue.main.async {  // on main thread
+                self.showLabelForFace(face: face, name: name)
+            }
         }
+    }
+
+    // Just for simplicity, we have a text layer per name
+    private var _nameToLabelLayer: [String: CATextLayer] = [:]
+
+    private func clearNameLabels() {
+        // Initially disable all layers
+        for (_, layer) in self._nameToLabelLayer {
+            layer.isHidden = true
+        }
+    }
+
+    private func showLabelForFace(face: Face, name: String) {
+        clearNameLabels()
+
+        // Lazy instantiate a CATextLayer
+        if _nameToLabelLayer[name] == nil {
+            let layer = CATextLayer()
+            _nameToLabelLayer[name] = layer
+            layer.isHidden = true
+
+            // Set layer size and text attributes
+            layer.frame = CGRect(x: 100, y: 100, width: 60*5, height: 15*5)
+            layer.fontSize = 60
+            layer.foregroundColor = UIColor.red.cgColor
+            layer.contentsScale = UIScreen.main.scale
+
+            sceneView.layer.addSublayer(layer)
+        }
+
+        // Get layer for this name
+        guard let layer = _nameToLabelLayer[name] else { return }
+
+        // Set name
+        layer.string = name + " 😈"
+        layer.frame = CGRect(x: face.boundingBox.minX, y: face.boundingBox.minY, width: 60*5, height: 15*5)
+        layer.isHidden = false  // show
     }
 
     // MARK: - Body Pose
