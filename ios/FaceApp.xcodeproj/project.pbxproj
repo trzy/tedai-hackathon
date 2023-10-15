@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		CC1F828628DFCF4600ABA203 /* Matrix4x4.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1F828528DFCF4600ABA203 /* Matrix4x4.swift */; };
 		CC70C4982ADB56E700FF6025 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC70C4972ADB56E700FF6025 /* UIImage+Extensions.swift */; };
+		CC70C4A72ADB642200FF6025 /* AWSRekognition in Frameworks */ = {isa = PBXBuildFile; productRef = CC70C4A62ADB642200FF6025 /* AWSRekognition */; };
 		CCB26D3128D80513004901A3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB26D3028D80513004901A3 /* AppDelegate.swift */; };
 		CCB26D3528D80513004901A3 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB26D3428D80513004901A3 /* ViewController.swift */; };
 		CCB26D3828D80513004901A3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CCB26D3628D80513004901A3 /* Main.storyboard */; };
@@ -69,6 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC70C4A72ADB642200FF6025 /* AWSRekognition in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +164,9 @@
 			dependencies = (
 			);
 			name = FaceApp;
+			packageProductDependencies = (
+				CC70C4A62ADB642200FF6025 /* AWSRekognition */,
+			);
 			productName = HMDSync;
 			productReference = CCB26D2D28D80513004901A3 /* FaceApp.app */;
 			productType = "com.apple.product-type.application";
@@ -214,6 +219,7 @@
 				TargetAttributes = {
 					CCB26D2C28D80513004901A3 = {
 						CreatedOnToolsVersion = 14.0.1;
+						LastSwiftMigration = 1500;
 					};
 					CCB26D4128D80514004901A3 = {
 						CreatedOnToolsVersion = 14.0.1;
@@ -234,6 +240,9 @@
 				Base,
 			);
 			mainGroup = CCB26D2428D80513004901A3;
+			packageReferences = (
+				CC70C4A52ADB642200FF6025 /* XCRemoteSwiftPackageReference "aws-sdk-ios-spm" */,
+			);
 			productRefGroup = CCB26D2E28D80513004901A3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -463,6 +472,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7T2874S592;
@@ -484,6 +494,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.cambrianmoment.HMDSync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -494,6 +506,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7T2874S592;
@@ -515,6 +528,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.cambrianmoment.HMDSync;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -632,6 +646,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CC70C4A52ADB642200FF6025 /* XCRemoteSwiftPackageReference "aws-sdk-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/aws-amplify/aws-sdk-ios-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.33.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CC70C4A62ADB642200FF6025 /* AWSRekognition */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CC70C4A52ADB642200FF6025 /* XCRemoteSwiftPackageReference "aws-sdk-ios-spm" */;
+			productName = AWSRekognition;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = CCB26D2528D80513004901A3 /* Project object */;
 }

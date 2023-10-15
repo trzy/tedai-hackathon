@@ -10,6 +10,8 @@ import SceneKit
 import ARKit
 import Vision
 
+import AWSRekognition
+
 class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
     private var _faceDetectionRequest: VNDetectFaceRectanglesRequest?
 
