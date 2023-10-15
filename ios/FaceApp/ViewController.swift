@@ -78,9 +78,9 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         // Show statistics such as fps and timing information
         sceneView.showsStatistics = true
         
-        // Create layers for rendering faces and body joints
+        // Create layers for rendering faces
         createFaceBoundingBoxLayer()
-        //createJointLayers()
+
 
         // Create a cube that will track the right wrist
         let node = SCNNode(geometry: SCNBox(width: 0.1, height: 0.1, length: 0.1, chamferRadius: 0.01))
@@ -93,7 +93,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         distanceLabel.isHidden = true
 
         // AWS init
-        let credentialsProvider = AWSStaticCredentialsProvider(accessKey: "AKIA4X72ZIEHWWPZQQUF", secretKey: "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")
+        let credentialsProvider = AWSStaticCredentialsProvider(accessKey: "", secretKey: "")
         let configuration = AWSServiceConfiguration(
             region: AWSRegionType.USWest1,
             credentialsProvider: credentialsProvider)
@@ -122,10 +122,12 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
     
     private func getARConfiguration() -> ARConfiguration {
         let configuration = ARWorldTrackingConfiguration();
-        if !ARWorldTrackingConfiguration.supportsFrameSemantics([ .sceneDepth ]) {
+        /*
+         if !ARWorldTrackingConfiguration.supportsFrameSemantics([ .sceneDepth ]) {
             fatalError("Scene depth not supported on this device")
         }
         configuration.frameSemantics.insert([ .sceneDepth ])
+        */
         return configuration
     }
     
@@ -133,6 +135,10 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         if let currentFrame = session.currentFrame {
             let rgbFrame = currentFrame.capturedImage
+            // Detect faces
+            detectFaces(rgbBuffer: rgbFrame, displayTransform: currentFrame.displayTransform(for: .portrait, viewportSize: view.bounds.size), frame: currentFrame)
+            
+            /*
             let depthFrame = currentFrame.sceneDepth?.depthMap
             if let depthFrame = depthFrame {
                 let (depthFrameMeters, width, height) = convertDepthFrameToMeters(depthBuffer: depthFrame)
@@ -142,14 +148,14 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
 //                let distance = depthFrameMeters[idx]
                 distanceLabel.text = ""//String(format: "Distance: %1.1f cm", distance * 100.0)
 
-                // Detect faces
-                detectFaces(rgbBuffer: rgbFrame, displayTransform: currentFrame.displayTransform(for: .portrait, viewportSize: view.bounds.size), frame: currentFrame)
+      
 
                 // Detect bodies
+            
                 detectBodyPose(rgbBuffer: rgbFrame, displayTransform: currentFrame.displayTransform(for: .portrait, viewportSize: view.bounds.size), depthBuffer: depthFrameMeters, depthBufferWidth: width, depthBufferHeight: height, frame: currentFrame)
             } else {
                 distanceLabel.text = ""//Distance: ?"
-            }
+            }*/
         }
     }
 
@@ -216,6 +222,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         return image.crop(to: CGRect(origin: adjustedOrigin, size: adjustedSize))
     }
 
+    private var _lastRekognitionRequestAt: Double = 0
+
     private func detectFaces(rgbBuffer: CVPixelBuffer, displayTransform: CGAffineTransform, frame: ARFrame) {
         guard _faceDetectionRequest == nil else { return }  // only if no request in progress
 
@@ -230,6 +238,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 DispatchQueue.main.async {
                     self._faceDetectionRequest = nil
                     self.clearNameLabels()
+                    self._faceBoundingBoxLayer.isHidden = true
                 }
                 return
             }
@@ -262,6 +271,14 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 }
 
                 // Send to recognition
+                // Throttle requests
+                let now = Date.timeIntervalSinceReferenceDate
+                guard now - self._lastRekognitionRequestAt >= 1.0 else {
+                    return
+                }
+                DispatchQueue.main.async {
+                    self.clearNameLabels()
+                }
                 for face in faces {
                     self.sendImageToRekognition(face: face)
                 }
@@ -278,14 +295,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
 
     // MARK: - AWS
 
-    private var _lastRekognitionRequestAt: Double = 0
 
     func sendImageToRekognition(face: Face) {
-        // Throttle requests
-        let now = Date.timeIntervalSinceReferenceDate
-        guard now - _lastRekognitionRequestAt >= 1.0 else {
-            return
-        }
         _lastRekognitionRequestAt = Date.timeIntervalSinceReferenceDate
 
         guard let rekognitionObject = _rekognition else { return }
@@ -308,9 +319,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 return
             }
 
-            DispatchQueue.main.async {
-                self.clearNameLabels()
-            }
+            
 
             guard let result = result else { return }
             guard let faceMatches = result.faceMatches, faceMatches.count > 0 else { return }
@@ -336,7 +345,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
     }
 
     private func showLabelForFace(face: Face, name: String) {
-        clearNameLabels()
+        //clearNameLabels()
 
         // Lazy instantiate a CATextLayer
         if _nameToLabelLayer[name] == nil {
@@ -346,186 +355,47 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
 
             // Set layer size and text attributes
             layer.frame = CGRect(x: 100, y: 100, width: 60*5, height: 15*5)
-            layer.fontSize = 60
-            layer.foregroundColor = UIColor.red.cgColor
+            layer.fontSize = 30
+            layer.foregroundColor = UIColor.white.cgColor
+            layer.contentsScale = UIScreen.main.scale
+
+            sceneView.layer.addSublayer(layer)
+        }
+        
+        // last minute hack to add joke layer
+        if _nameToLabelLayer["joke"] == nil {
+            let layer = CATextLayer()
+            _nameToLabelLayer["joke"] = layer
+            layer.isHidden = true
+
+            // Set layer size and text attributes
+            layer.frame = CGRect(x: 10, y: 10, width: 100*5, height: 30*5)
+            layer.fontSize = 24
+            layer.foregroundColor = UIColor.green.cgColor
             layer.contentsScale = UIScreen.main.scale
 
             sceneView.layer.addSublayer(layer)
         }
 
+
         // Get layer for this name
         guard let layer = _nameToLabelLayer[name] else { return }
+        guard let jokeLayer = _nameToLabelLayer["joke"] else { return }
 
+
+        // hack to add metadataa
+        if name == "travis" {
+            layer.string = name + "\nFounding Solutions\nArchitect\nTwelve Labs"
+            jokeLayer.string = "Icebreaker Joke:\nDoes Twelve Labs have a \n secret 13th lab for extra luck?"
+            jokeLayer.isHidden = false
+        } else {
+            layer.string = name + "\n❤️"
+        }
         // Set name
-        layer.string = name + " 😈"
-        layer.frame = CGRect(x: face.boundingBox.minX, y: face.boundingBox.minY, width: 60*5, height: 15*5)
+        layer.frame = CGRect(x: face.boundingBox.minX-50, y: face.boundingBox.minY+10, width: 60*5, height: 20*10)
         layer.isHidden = false  // show
     }
 
-    // MARK: - Body Pose
-    
-    private func createJointLayers() {
-        _jointLayers = [
-            .leftAnkle: CAShapeLayer(),
-            .leftEar: CAShapeLayer(),
-            .leftEye: CAShapeLayer(),
-            .leftElbow: CAShapeLayer(),
-            .leftKnee: CAShapeLayer(),
-            .leftWrist: CAShapeLayer(),
-            .rightAnkle: CAShapeLayer(),
-            .rightEar: CAShapeLayer(),
-            .rightEye: CAShapeLayer(),
-            .rightElbow: CAShapeLayer(),
-            .rightKnee: CAShapeLayer(),
-            .rightWrist: CAShapeLayer(),
-            .nose: CAShapeLayer(),
-            .neck: CAShapeLayer(),
-            .rightShoulder: CAShapeLayer(),
-            .rightHip: CAShapeLayer(),
-            .root: CAShapeLayer(),
-            .leftHip: CAShapeLayer(),
-            .leftShoulder: CAShapeLayer()
-        ]
-        for (_, layer) in _jointLayers {
-            layer.path = UIBezierPath(roundedRect: CGRect(x: view.center.x - 2, y: view.center.y - 2, width: 4, height: 4), cornerRadius: 0).cgPath
-            layer.fillColor = UIColor.red.cgColor
-            layer.isHidden = true
-            sceneView.layer.addSublayer(layer)
-        }
-        _jointLayers[.rightWrist]!.fillColor = UIColor.green.cgColor
-        _jointLayers[.leftEye]!.fillColor = UIColor.yellow.cgColor
-        _jointLayers[.rightEye]!.fillColor = UIColor.yellow.cgColor
-        _jointLayers[.nose]!.fillColor = UIColor.blue.cgColor
-    }
-    
-    private func detectBodyPose(rgbBuffer: CVPixelBuffer, displayTransform: CGAffineTransform, depthBuffer: [Float], depthBufferWidth: Int, depthBufferHeight: Int, frame: ARFrame) {
-        // Only if no request in progress
-        guard _bodyPoseRequestAttachments == nil else {
-            return
-        }
-        
-        // Submit body pose detection request
-        _bodyPoseRequestAttachments = BodyPoseRequestAttachments(
-            depthBuffer: depthBuffer,
-            depthBufferWidth: depthBufferWidth,
-            depthBufferHeight: depthBufferHeight,
-            imageWidth: CVPixelBufferGetWidth(rgbBuffer),
-            imageHeight: CVPixelBufferGetHeight(rgbBuffer),
-            displayTransform: displayTransform,
-            frame: frame
-        )
-        let requestHandler = VNImageRequestHandler(cvPixelBuffer: rgbBuffer)
-        let request = VNDetectHumanBodyPoseRequest(completionHandler: bodyPoseHandler)
-        do {
-            try requestHandler.perform([ request ])
-        } catch {
-            print("Unable to perform request: \(error)")
-        }
-    }
-    
-    private func bodyPoseHandler(request: VNRequest, error: Error?) {
-        guard let attachments = _bodyPoseRequestAttachments else {
-            return
-        }
-        _bodyPoseRequestAttachments = nil
-        guard let observations = request.results as? [VNHumanBodyPoseObservation] else {
-            return
-        }
-        
-        for observation in observations {
-            processBodyPose(observation: observation, attachments: attachments)
-        }
-    }
-    
-    private func processBodyPose(observation: VNHumanBodyPoseObservation, attachments: BodyPoseRequestAttachments) {
-        guard let recognizedPoints = try? observation.recognizedPoints(.all) else {
-            return
-        }
-        
-        // Disable all layers
-        for (_, layer) in _jointLayers {
-            layer.isHidden = true
-        }
-        
-        // Enable layers coresponding to observed joints and set their positions
-        for (jointName, point) in recognizedPoints {
-            if point.confidence > 0, let layer = _jointLayers[jointName] {
-                let normalizedPoint = CGPoint(x: point.location.x, y: 1.0 - point.location.y)                               // Vision has (0,0) at bottom left but we want it to be in top left
-                let normalizedViewportPoint = CGPointApplyAffineTransform(normalizedPoint, attachments.displayTransform)    // a required transform that maps to the viewport that displays the ARFrame, also apparently in some normalized coordinate form
-                let viewportPoint = CGPoint(x: normalizedViewportPoint.x * sceneView.bounds.width, y: normalizedViewportPoint.y * sceneView.bounds.height)  // not even sure if this is really correct
-                layer.path = UIBezierPath(roundedRect: CGRect(x: viewportPoint.x - 2, y: viewportPoint.y - 2, width: 4, height: 4), cornerRadius: 0).cgPath
-                layer.isHidden = false
-                
-                // Test: right wrist
-                if jointName == .rightWrist {
-                    if let rightWristPos = updateRightWristCube(viewportPoint: viewportPoint, normalizedPoint: normalizedPoint, attachments: attachments) {
-                    }
-                }
-            }
-        }
-    }
-    
-    private func convertDepthFrameToMeters(depthBuffer: CVPixelBuffer) -> ([Float], Int, Int) {
-        let width = CVPixelBufferGetWidth(depthBuffer)
-        let height = CVPixelBufferGetHeight(depthBuffer)
-
-        // Cast depth frame to float and copy to our own buffer
-        CVPixelBufferLockBaseAddress(depthBuffer, CVPixelBufferLockFlags(rawValue: 0))
-        let floatBuffer = unsafeBitCast(CVPixelBufferGetBaseAddress(depthBuffer), to: UnsafeMutablePointer<Float32>.self)
-        let depth: [Float] = Array(UnsafeBufferPointer(start: floatBuffer, count: width * height))
-        CVPixelBufferUnlockBaseAddress(depthBuffer, CVPixelBufferLockFlags(rawValue: 0))
-
-        // Return our buffer to caller
-        return (depth, width, height)
-    }
-    
-    // MARK: - Depth Tracking of Body Points
-    
-    // viewportPoint is what ARKit's unproject expects, normalizedPoint corresponds to pixel buffer and should
-    // be used to sample depth map
-    private func updateRightWristCube(viewportPoint: CGPoint, normalizedPoint: CGPoint, attachments: BodyPoseRequestAttachments) -> Vector3? {
-        let frame = attachments.frame
-        let position = frame.camera.transform.position
-        let forward = frame.camera.transform.forward
-        let up = frame.camera.transform.up
-        
-        _rightWristCube?.isHidden = true
-        
-        // Create a plane in front of the camera, where plane is along xz and y is camera forward
-        let planeTransform = simd_float4x4(
-            translation: position - 1 * forward,
-            rotation: Quaternion.lookRotation(forward: up, up: forward),
-            scale: simd_float3.one
-        )
-        
-        // Try to unproject the viewport point so that we can construct a ray from the camera position
-        // into the world passing through the viewport point. If we can't do this, we cannot proceed.
-        guard let planeWorldPos = frame.camera.unprojectPoint(viewportPoint, ontoPlane: planeTransform, orientation: .portrait, viewportSize: sceneView.bounds.size) else { return nil }
-        let ray = Ray(origin: position, through: planeWorldPos)
-        
-        // Sample the depth map to figure out how far along the ray we are
-        let distance = sampleDepthMap(attachments: attachments, normalizedPoint: normalizedPoint)
-        
-        // Move cube to that point
-        let rightWristPos = position + ray.direction * distance
-        _rightWristCube?.simdPosition = rightWristPos
-        _rightWristCube?.isHidden = false
-        
-        return rightWristPos
-    }
-    
-    private func clamp(_ value: Int, min minValue: Int, max maxValue: Int) -> Int {
-        return min(max(value, minValue), maxValue)
-    }
-    
-    private func sampleDepthMap(attachments: BodyPoseRequestAttachments, normalizedPoint: CGPoint) -> Float {
-        let x = clamp(Int(round(Float(normalizedPoint.x) * Float(attachments.depthBufferWidth))), min: 0, max: attachments.depthBufferWidth - 1)
-        let y = clamp(Int(round(Float(normalizedPoint.y) * Float(attachments.depthBufferHeight))), min: 0, max: attachments.depthBufferHeight - 1)
-        return attachments.depthBuffer[y * attachments.depthBufferWidth + x]
-    }
-
-    // MARK: - ARSCNViewDelegate
-    
 /*
     // Override to create and configure nodes for anchors added to the view's session.
     func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
