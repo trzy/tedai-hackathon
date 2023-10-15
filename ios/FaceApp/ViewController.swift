@@ -13,6 +13,8 @@ import Vision
 import AWSRekognition
 
 class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
+    private var _rekognition: AWSRekognition?
+
     private var _faceDetectionRequest: VNDetectFaceRectanglesRequest?
 
     private struct BodyPoseRequestAttachments {
@@ -24,7 +26,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         public let displayTransform: CGAffineTransform
         public let frame: ARFrame
     }
-    
+
+
     private var _bodyPoseRequestAttachments: BodyPoseRequestAttachments?
     private var _jointLayers: [VNHumanBodyPoseObservation.JointName: CAShapeLayer] = [:]
     private var _rightWristCube: SCNNode?
@@ -88,6 +91,14 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         // Hide debug controls
         placeButton.isHidden = true
         distanceLabel.isHidden = true
+
+        // AWS init
+        let credentialsProvider = AWSStaticCredentialsProvider(accessKey: "AKIA4X72ZIEHWWPZQQUF", secretKey: "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")
+        let configuration = AWSServiceConfiguration(
+            region: AWSRegionType.USWest1,
+            credentialsProvider: credentialsProvider)
+        AWSServiceManager.default().defaultServiceConfiguration = configuration
+        _rekognition = AWSRekognition.default()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -217,7 +228,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 return
             }
 
-            print("Found \(results.count) faces")
+            //print("Found \(results.count) faces")
 
             guard let image = UIImage(pixelBuffer: rgbBuffer) else {
                 DispatchQueue.main.async {
@@ -239,9 +250,21 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
 
                 // Extract cropped images
                 let faceCrops = results.compactMap { self.extractFaceCrop(of: $0.boundingBox, from: image) }
-                if let firstFace = faceCrops.first {
-                    self.testImageView.image = firstFace
+                for faceCrop in faceCrops {
+                    if let jpegData = faceCrop.jpegData(compressionQuality: 0.75) {
+                        self.sendImageToRekognition(imageData: jpegData)
+                    }
                 }
+//                if let firstFace = faceCrops.first {
+//                    self.testImageView.image = firstFace
+//
+//                    guard let jpegData = firstFace.jpegData(compressionQuality: 0.75) else {
+//                        print("Failed to obtain JPEG data for cropped face")
+//                        return
+//                    }
+//
+//                    self.sendImageToRekognition(imageData: jpegData)
+//                }
             }
         })
 
@@ -250,6 +273,44 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             try requestHandler.perform([ _faceDetectionRequest! ])
         } catch {
             print("Unable to perform request: \(error)")
+        }
+    }
+
+    // MARK: - AWS
+
+    private var _lastRekognitionRequestAt: Double = 0
+
+    func sendImageToRekognition(imageData: Data) {
+        // Throttle requests
+        let now = Date.timeIntervalSinceReferenceDate
+        guard now - _lastRekognitionRequestAt >= 1.0 else {
+            return
+        }
+        _lastRekognitionRequestAt = Date.timeIntervalSinceReferenceDate
+
+        guard let rekognitionObject = _rekognition else { return }
+
+        let awsImage = AWSRekognitionImage()
+        awsImage?.bytes = imageData
+        let request = AWSRekognitionSearchFacesByImageRequest()
+        request?.image = awsImage
+        request?.collectionId = "tedai-hackathon"
+        request?.faceMatchThreshold = 90
+        request?.maxFaces = 1
+
+        rekognitionObject.searchFaces(byImage: request!) { (result, error) in
+            if error != nil {
+                print(error!)
+                return
+            }
+
+            guard let result = result else { return }
+            guard let faceMatches = result.faceMatches, faceMatches.count > 0 else { return }
+            guard let face = faceMatches.first else { return }
+            guard let theRealFace = face.face else { return }
+            guard let name = theRealFace.externalImageId else { return }
+
+            print("NAME = \(name)")
         }
     }
 
